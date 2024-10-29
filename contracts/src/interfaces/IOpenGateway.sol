@@ -6,7 +6,7 @@ enum TokenType {
     ERC20
 }
 
-struct PaymentMeatdata {
+struct PaymentMetadata {
     uint256 amount;
     bytes32 paymentId;
     uint40 paymentBlock;
@@ -14,6 +14,7 @@ struct PaymentMeatdata {
     TokenType tokenType;
     address payer;
     string metadata;
+    bool processed;
 }
 
 interface IOpenGateway {
@@ -29,7 +30,7 @@ interface IOpenGateway {
     function getPayment(bytes32 paymentId)
         external
         view
-        returns (PaymentMeatdata memory paymentMetadata, uint256 currentBlock);
+        returns (PaymentMetadata memory paymentMetadata, uint256 currentBlock);
 
     // Configuration functions
     function updateConfirmationBlockHeight(uint40 newConfirmationBlockHeight) external;

@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import {PaymentMeatdata, TokenType, IOpenGateway} from "./interfaces/IOpenGateway.sol";
+import {PaymentMetadata, TokenType, IOpenGateway} from "./interfaces/IOpenGateway.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
@@ -23,7 +24,7 @@ contract OpenGateway is IOpenGateway, Ownable, Pausable {
 
     /// @notice Mapping of payment IDs to their corresponding payment metadata
     /// @dev Uses bytes32 as key for gas efficiency and uniqueness
-    mapping(bytes32 => PaymentMeatdata) public payments;
+    mapping(bytes32 => PaymentMetadata) public payments;
 
     /// @notice Mapping of token addresses to their whitelist status
     /// @dev true = whitelisted, false = not whitelisted
@@ -102,19 +103,77 @@ contract OpenGateway is IOpenGateway, Ownable, Pausable {
             require(msg.value == amount, "Incorrect ETH amount");
         } else {
             require(msg.value == 0, "ETH not accepted for ERC20");
+            // Check that the token is whitelisted
+            require(tokenWhitelist[tokenAddress], "Token not whitelisted");
             transferTokens(tokenAddress, payer, amount);
         }
 
         // Store payment metadata
-        payments[paymentId] = PaymentMeatdata({
+        payments[paymentId] = PaymentMetadata({
             amount: amount,
             paymentId: paymentId,
             paymentBlock: uint40(block.timestamp),
             tokenAddress: tokenAddress,
             tokenType: tokenType,
             payer: payer,
-            metadata: metadata
+            metadata: metadata,
+            processed: true
         });
+
+        emit PaymentCompleted(paymentId, payer, tokenAddress, amount);
+    }
+    /**
+     * @notice Process a payment in ERC20 tokens using the permit function
+     * @dev msg.value must be 0
+     * @param amount Amount of tokens to transfer
+     * @param paymentId Unique identifier for the payment
+     * @param tokenAddress Address of the ERC20 token
+     * @param payer Address making the payment
+     * @param deadline The time at which the approval is no longer valid
+     * @param v The recovery byte of the signature
+     * @param r Half of the ECDSA signature pair
+     * @param s Half of the ECDSA signature pair
+     * @param metadata Additional payment information
+     */
+
+    function makePaymentWithPermit(
+        uint256 amount,
+        bytes32 paymentId,
+        address tokenAddress,
+        address payer,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s,
+        string calldata metadata
+    ) external whenNotPaused {
+        // Verify payment ID hasn't been used before
+        require(payments[paymentId].paymentId == bytes32(0), "Payment exists");
+        // Check that the token is whitelisted
+        require(tokenWhitelist[tokenAddress], "Token not whitelisted");
+
+        // Check that the token is whitelisted
+        require(tokenWhitelist[tokenAddress], "Token not whitelisted");
+
+        // Use the permit function to approve the transfer
+        IERC20Permit(tokenAddress).permit(payer, address(this), amount, deadline, v, r, s);
+
+        // Transfer the tokens from the payer to the contract
+        transferTokens(tokenAddress, payer, amount);
+
+        // Store payment metadata
+        payments[paymentId] = PaymentMetadata({
+            amount: amount,
+            paymentId: paymentId,
+            paymentBlock: uint40(block.timestamp),
+            tokenAddress: tokenAddress,
+            tokenType: TokenType.ERC20,
+            payer: payer,
+            metadata: metadata,
+            processed: true
+        });
+
+        emit PaymentCompleted(paymentId, payer, tokenAddress, amount);
     }
 
     /**
@@ -126,7 +185,7 @@ contract OpenGateway is IOpenGateway, Ownable, Pausable {
     function getPayment(bytes32 paymentId)
         external
         view
-        returns (PaymentMeatdata memory paymentMetadata, uint256 currentBlock)
+        returns (PaymentMetadata memory paymentMetadata, uint256 currentBlock)
     {
         return (payments[paymentId], block.number);
     }
@@ -168,7 +227,7 @@ contract OpenGateway is IOpenGateway, Ownable, Pausable {
      * @param recipient Address to receive the tokens
      * @return success Boolean array indicating success of each token withdrawal
      */
-    function withdrawERC20(address token, address recipient) external onlyOwner returns (bool success) {
+    function withdrawERC20(address token, address recipient) external onlyOwner returns (bool) {
         // Input validation
         require(recipient != address(0), "Invalid recipient");
         require(token != address(0), "Invalid token");
@@ -184,13 +243,13 @@ contract OpenGateway is IOpenGateway, Ownable, Pausable {
         // Transfer tokens using transfer(address,uint256)
         bytes memory transferData = abi.encodeWithSignature("transfer(address,uint256)", recipient, balance);
 
-        (success,) = token.call(transferData);
+        (bool success, bytes memory data) = token.call(transferData);
         require(success, "Transfer failed");
 
         // Verify the transfer was successful by checking return value
         // Some tokens don't return a value, so we check if either there's no return data
         // or if the return data decodes to true
-        require(success && (transferData.length == 0 || abi.decode(transferData, (bool))), "Transfer failed");
+        require(success && (data.length == 0 || abi.decode(data, (bool))), "Transfer failed");
 
         return success;
     }
