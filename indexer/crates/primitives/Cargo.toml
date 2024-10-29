@@ -1,0 +1,24 @@
+[package]
+name = "chronicle-primitives"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde.workspace = true
+anyhow.workspace = true
+serde_json.workspace = true
+async-trait.workspace = true
+alloy.workspace = true
+postgres.workspace = true
+tokio.workspace = true
+tokio-postgres.workspace = true
+async-graphql = "7.0.3"
+chrono.workspace = true
+
+
+
+
+[features]
+development = []
