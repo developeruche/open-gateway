@@ -27,6 +27,18 @@ interface IOpenGateway {
         string calldata metadata
     ) external payable;
 
+        function makePaymentWithPermit(
+        uint256 amount,
+        bytes32 paymentId,
+        address tokenAddress,
+        address payer,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s,
+        string calldata metadata
+    ) external;
+
     function getPayment(bytes32 paymentId)
         external
         view
