@@ -13,4 +13,4 @@ node_modules/
 dist/
 
 # Generated files
-opengateway-contract-types
+src/opengateway-contract-types/
