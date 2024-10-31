@@ -11,3 +11,6 @@ node_modules/
 
 # Output dir
 dist/
+
+# Generated files
+opengateway-contract-types
