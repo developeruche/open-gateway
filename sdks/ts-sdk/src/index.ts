@@ -2,7 +2,7 @@ export * from './types'
 
 import { ethers } from 'ethers'
 import type { Provider, Signer } from 'ethers'
-import { PaymentParams, PrePaymentParams } from './types'
+import { PaymentParams, PrePaymentParams, Token } from './types'
 import { genPaymentId } from './utils'
 import {
   OpenGateway,
@@ -24,6 +24,7 @@ export class OpenGatewaySdk {
   private signer?: Signer
   private factoryContract: OpenGatewayFactory
   private confirmationBlockHeight?: number
+  private tokens: Token[] = []
 
   /**
    * Creates an instance of OpenGatewaySdk
@@ -32,11 +33,12 @@ export class OpenGatewaySdk {
    * @param signer - Optional signer for transactions requiring signatures
    * @param confirmationBlockHeight - Optional default confirmation block height
    */
-  constructor(provider: Provider, factoryAddress: string, signer?: Signer, confirmationBlockHeight?: number) {
+  constructor(provider: Provider, factoryAddress: string, signer?: Signer, confirmationBlockHeight?: number, tokens?: Token[]) {
     this.provider = provider
     this.signer = signer
     this.factoryContract = OpenGatewayFactory__factory.connect(factoryAddress, this.signer || this.provider)
     this.confirmationBlockHeight = confirmationBlockHeight
+    this.tokens = tokens || []
   }
 
   /**
@@ -302,5 +304,14 @@ export class OpenGatewaySdk {
 
     const gateway = this.getGatewayContract(gatewayAddress)
     return gateway.confirmationBlockHeight()
+  }
+
+  /**
+   * Fetches the gateway's whitelisted tokens
+   * @param {string} gatewayAddress - Address of the gateway contract
+   * @returns {Promise<string[]>} Array of whitelisted token addresses
+   */
+  getWhitelistedTokens(gatewayAddress: string): Token[] {
+    return this.tokens
   }
 }

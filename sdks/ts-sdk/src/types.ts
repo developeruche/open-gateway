@@ -23,3 +23,10 @@ export interface PaymentMetadata {
   metadata: string
   processed: boolean // true is payment has been
 }
+
+export interface Token {
+  address: string
+  symbol: string
+  decimals: number
+  imgUri: string
+}
